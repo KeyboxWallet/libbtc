@@ -7,7 +7,7 @@ extern inline btc_bool psbt_map_elem_get_flag_dirty(const psbt_map_elem * elem);
 extern inline void psbt_map_elem_set_flag_unkown_type(psbt_map_elem * elem, btc_bool unknown);
 extern inline void psbt_map_elem_set_flag_dirty(psbt_map_elem * elem, btc_bool dirty);
 
-psbt_map_elem * psbt_map_elem_new()
+static psbt_map_elem * psbt_map_elem_new()
 {
     psbt_map_elem* elem;
     elem = btc_malloc(sizeof(psbt_map_elem));
@@ -352,9 +352,72 @@ void psbt_reset(psbt * psbt)
     }
 }
 
+static inline void ser_psbt_map_elem(cstring *str, psbt_map_elem * elem)
+{
+    ser_varlen(str, elem->key.len);
+    ser_bytes(str, elem->key.p, elem->key.len);
+    ser_varlen(str, elem->value.len);
+    ser_bytes(str, elem->value.p, elem->value.len);
+}
 
 int psbt_serialize( cstring * str, const psbt * psbt )
 {
+    if( !str || !psbt || !psbt->global_data){
+        return false;
+    }
+    size_t origin_len = str->len;
 
+    cstr_append_buf(str, "psbt", 4);
+    cstr_append_c(str, 0xFF);
+
+    psbt_map_elem * elem;
+    size_t i,j;
+    vector * vec;
+    for(i=0; i<psbt->global_data->len; i++){
+        elem = vector_idx(psbt->global_data, i);
+        if(!psbt_map_elem_get_flag_dirty(elem)){
+            ser_psbt_map_elem(str, elem);
+        }
+        else{
+            goto _reset_cstring;
+        }
+    }
+    cstr_append_c(str, 0);
+    if( psbt->input_data )
+    for(i=0; i<psbt->input_data->len; i++){
+        vec = vector_idx(psbt->input_data, i);
+        for(j=0; j<vec->len; j++){
+            elem = vector_idx(vec, j);
+            if( psbt_map_elem_get_flag_dirty(elem)){
+                // todo: 
+                goto _reset_cstring;
+            }
+            else{
+                ser_psbt_map_elem(str, elem);
+            }
+        }
+        cstr_append_c(str, 0);
+    }
+
+    for(i=0; i<psbt->output_data->len; i++){
+        vec = vector_idx(psbt->output_data, i);
+        for(j=0; j<vec->len; j++){
+            elem = vector_idx(vec, j);
+            if( psbt_map_elem_get_flag_dirty(elem)){
+                // todo: 
+                goto _reset_cstring;
+            }
+            else{
+                ser_psbt_map_elem(str, elem);
+            }
+        }
+        cstr_append_c(str, 0);
+    }
+
+
+    return true;
+
+_reset_cstring:
+    str->len = origin_len;
     return false;
 }

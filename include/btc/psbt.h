@@ -92,10 +92,6 @@ typedef struct _psbt {
     vector * output_data;
 } psbt;
 
-LIBBTC_API psbt_map_elem * psbt_map_elem_new();
-
-LIBBTC_API void psbt_map_elem_free(psbt_map_elem * elem);
-
 LIBBTC_API int psbt_deserialize( psbt * psbt, struct const_buffer *buffer);
 
 LIBBTC_API int psbt_serialize( cstring * str, const psbt * psbt );

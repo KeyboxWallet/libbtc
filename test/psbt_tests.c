@@ -59,7 +59,7 @@ void test_psbt()
     struct const_buffer buf;
     psbt psbt;
     psbt_init(&psbt);
-
+    cstring * str;
     for( size_t i =0; i < (sizeof(invalid_psbts)/sizeof(char*)); i++){
         const char * invalidpsbt = invalid_psbts[i];
         assert(BUFFER_SIZE * 2 >= strlen(invalidpsbt) );
@@ -80,6 +80,12 @@ void test_psbt()
         buf.len = len;
         int result = psbt_deserialize(&psbt, &buf);
         assert(result == true);
+        str = cstr_new_sz(len);
+        result = psbt_serialize(str, &psbt);
+        assert(result == true);
+        assert(str->len == len);
+        assert(memcmp(str->str, content, len) == 0);
+        cstr_free(str,true);
         psbt_reset(&psbt);
     }
 
