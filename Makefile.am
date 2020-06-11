@@ -33,7 +33,8 @@ include_HEADERS = \
     include/btc/tool.h \
     include/btc/tx.h \
     include/btc/utils.h \
-    include/btc/vector.h
+    include/btc/vector.h \
+    include/btc/psbt.h
 
 pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = libbtc.pc
@@ -60,7 +61,8 @@ libbtc_la_SOURCES = \
     src/sha2.c \
     src/tx.c \
     src/utils.c \
-    src/vector.c
+    src/vector.c \
+    src/psbt.c
 
 libbtc_la_CFLAGS = -I$(top_srcdir)/include -I$(top_srcdir)/src/logdb/include
 libbtc_la_LIBADD = $(LIBSECP256K1)
@@ -86,7 +88,8 @@ tests_SOURCES = \
     test/unittester.c \
     test/tx_tests.c \
     test/utils_tests.c \
-    test/vector_tests.c
+    test/vector_tests.c \
+    test/psbt_tests.c
 
 tests_CFLAGS = $(libbtc_la_CFLAGS)
 tests_CPPFLAGS = -I$(top_srcdir)/src

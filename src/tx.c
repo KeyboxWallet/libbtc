@@ -275,6 +275,17 @@ btc_bool btc_tx_has_witness(const btc_tx *tx)
     return false;
 }
 
+btc_bool btc_tx_has_scriptSig(const btc_tx *tx)
+{
+    for (size_t i = 0; i < tx->vin->len; i++) {
+        btc_tx_in *tx_in = vector_idx(tx->vin, i);
+        if (tx_in->script_sig != NULL && tx_in->script_sig->len > 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
 void btc_tx_serialize(cstring* s, const btc_tx* tx, btc_bool allow_witness)
 {
     ser_s32(s, tx->version);

@@ -60,6 +60,7 @@ extern void test_invalid_tx_deser();
 extern void test_tx_sign();
 extern void test_scripts();
 extern void test_eckey();
+extern void test_psbt();
 
 #ifdef WITH_WALLET
 extern void test_wallet();
@@ -114,6 +115,7 @@ int main()
     u_run_test(test_script_op_codeseperator);
 
     u_run_test(test_eckey);
+    u_run_test(test_psbt);
 
 #ifdef WITH_WALLET
     //u_run_test(test_wallet);

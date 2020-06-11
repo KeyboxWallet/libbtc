@@ -41,3 +41,4 @@ libbtc.pc
 *.gcda
 *.gcov
 *.gcno
+.vscode/

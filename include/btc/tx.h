@@ -84,6 +84,7 @@ LIBBTC_API void btc_tx_copy(btc_tx* dest, const btc_tx* src);
 
 //!deserialize/parse a p2p serialized bitcoin transaction
 LIBBTC_API int btc_tx_deserialize(const unsigned char* tx_serialized, size_t inlen, btc_tx* tx, size_t* consumed_length, btc_bool allow_witness);
+btc_bool btc_tx_out_deserialize(btc_tx_out* tx_out, struct const_buffer* buf);
 
 //!serialize a lbc bitcoin data structure into a p2p serialized buffer
 LIBBTC_API void btc_tx_serialize(cstring* s, const btc_tx* tx, btc_bool allow_witness);
@@ -104,6 +105,7 @@ LIBBTC_API btc_bool btc_tx_outpoint_is_null(btc_tx_outpoint* tx);
 LIBBTC_API btc_bool btc_tx_is_coinbase(btc_tx* tx);
 
 LIBBTC_API btc_bool btc_tx_has_witness(const btc_tx *tx);
+LIBBTC_API btc_bool btc_tx_has_scriptSig(const btc_tx *tx);
 
 enum btc_tx_sign_result {
     BTC_SIGN_UNKNOWN = 0,
