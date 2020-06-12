@@ -4,6 +4,7 @@
 #include "btc.h"
 #include "vector.h"
 #include "serialize.h"
+#include "buffer.h"
 
 LIBBTC_BEGIN_DECL
 
@@ -75,7 +76,7 @@ inline btc_bool psbt_map_elem_get_flag_dirty(const psbt_map_elem * elem)
     return PSBT_GET_FLAG(elem, PSBT_ELEM_FLAG_DIRTY);
 }
 
-inline void psbt_map_elem_set_flag_unkown_type(psbt_map_elem * elem, btc_bool unknown)
+inline void psbt_map_elem_set_flag_unknown_type(psbt_map_elem * elem, btc_bool unknown)
 {
     PSBT_SET_FLAG(elem, PSBT_ELEM_FLAG_UNKNOWN_TYPE, unknown);
 }
@@ -99,6 +100,16 @@ LIBBTC_API int psbt_serialize( cstring * str, const psbt * psbt );
 LIBBTC_API void psbt_init(psbt * psbt);
 
 LIBBTC_API void psbt_reset(psbt * psbt);
+
+LIBBTC_API uint32_t psbt_get_input_count(const psbt * psbt);
+
+LIBBTC_API int psbt_check_for_sig(const psbt *psbt, uint32_t input_n, uint32_t * hashtype_out, char ** err_message);
+
+LIBBTC_API int psbt_get_sighash(const psbt *psbt, uint32_t input_n, uint160 hash);
+
+LIBBTC_API int psbt_add_partial_sig(psbt *psbt, uint32_t input_n, struct const_buffer * pubkey, struct const_buffer * sig);
+
+// LIBBTC_API int psbt_sign(psbt *psbt, uint32_t input_n, const btc_key *privkey);
 
 LIBBTC_END_DECL
 

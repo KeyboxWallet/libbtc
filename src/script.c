@@ -318,12 +318,15 @@ enum btc_tx_out_type btc_script_classify(const cstring* script, vector* data_out
 
     if (btc_script_is_pubkeyhash(ops, data_out))
         tx_out_type = BTC_TX_PUBKEYHASH;
-    if (btc_script_is_scripthash(ops, data_out))
+    else if (btc_script_is_scripthash(ops, data_out))
         tx_out_type = BTC_TX_SCRIPTHASH;
-    if (btc_script_is_pubkey(ops, data_out))
+    else if (btc_script_is_pubkey(ops, data_out))
         tx_out_type = BTC_TX_PUBKEY;
-    if (btc_script_is_multisig(ops))
+    else if (btc_script_is_multisig(ops))
         tx_out_type = BTC_TX_MULTISIG;
+    if( tx_out_type != BTC_TX_NONSTANDARD){
+        goto _classify_ok;
+    }
     uint8_t version = 0;
     uint8_t witness_program[40] = {0};
     int witness_program_len = 0;
@@ -345,6 +348,7 @@ enum btc_tx_out_type btc_script_classify(const cstring* script, vector* data_out
             }
         }
     }
+_classify_ok:
     vector_free(ops, true);
     return tx_out_type;
 }
