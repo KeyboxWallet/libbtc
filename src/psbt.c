@@ -560,3 +560,158 @@ int psbt_check_for_sig(const psbt *psbt, uint32_t input_n, uint32_t * hashtype_o
 
     return true;
 }
+
+
+int psbt_get_sighash(const psbt *psbt, uint32_t input_n, uint32_t hash_type, uint256 hash, char ** err_message)
+{
+    #define SET_ERR_MSG_AND_RET(msg) { if(err_message) *err_message = #msg ; return false; }
+
+    if( !psbt || !psbt->global_data || !psbt->input_data ) SET_ERR_MSG_AND_RET("invalid psbt");
+    if( psbt->input_data->len <= input_n ) SET_ERR_MSG_AND_RET("input_n too large");
+    btc_tx * tx = get_unsigned_tx(psbt);
+    if( !tx ) SET_ERR_MSG_AND_RET("get unsigned transaction error");
+    if( tx->vin->len <= input_n ) SET_ERR_MSG_AND_RET("input_n too large");
+    btc_tx_in * tx_in = vector_idx(tx->vin, input_n);
+    vector * input_map = vector_idx(psbt->input_data, input_n);
+    size_t i;
+    btc_tx * prev_tx;
+    btc_tx_out * prev_tx_out = NULL;
+    btc_tx_out * witness_utxo = NULL;
+    uint256 txhash;
+    uint8_t witness_version;
+    uint8_t witness_program[40];
+    int program_len = 0;
+    cstring redeemStr;
+    cstring witnessStr;
+    cstring *fromPubkey = NULL;
+    redeemStr.len = 0;
+    witnessStr.len = 0;
+    vector *data_out = NULL;
+    enum btc_tx_out_type tx_out_type;
+    uint8_t * scriptPubkeyHash = NULL;
+    for(i=0; i<input_map->len; i++){
+        psbt_map_elem * elem = vector_idx(input_map, i);
+        btc_tx_in * vin = vector_idx(tx->vin, i);
+        switch(elem->type.input){
+        case PSBT_IN_NON_WITNESS_UTXO:
+            prev_tx = elem->parsed.elem;
+            btc_tx_hash(prev_tx, txhash);
+            if(memcmp(txhash, tx_in->prevout.hash, 32) != 0){
+                SET_ERR_MSG_AND_RET("non_witness_utxo txid mismatch");
+            }
+            prev_tx_out = vector_idx(prev_tx->vout, vin->prevout.n);
+            break;
+        case PSBT_IN_WITNESS_UTXO:
+            witness_utxo = elem->parsed.elem;
+            break;
+        case PSBT_IN_REDEEM_SCRIPT:
+            redeemStr.str = elem->value.p;
+            redeemStr.len = elem->value.len;
+            break;
+        case PSBT_IN_WITNESS_SCRIPT:
+            witnessStr.str = elem->value.p;
+            witnessStr.len = elem->value.len;
+            break;
+        case PSBT_IN_SIGHASH_TYPE:
+            //*hashtype_out = elem->parsed.data;
+            if(elem->parsed.data != hash_type)
+                SET_ERR_MSG_AND_RET("hash type missmatch")
+            break;
+        }
+    }
+    if( redeemStr.len != 0 ){
+        if( prev_tx_out && witness_utxo ){
+            SET_ERR_MSG_AND_RET("witness_utxo and non witness utxo coexist.");
+        }
+        if( prev_tx_out || witness_utxo ){
+            cstring *scriptPubkey;
+            if( prev_tx_out ) {
+                scriptPubkey  = prev_tx_out->script_pubkey;
+            }
+            else if(witness_utxo) {
+                scriptPubkey = witness_utxo->script_pubkey;
+            }
+            data_out = vector_new(2, free);
+            tx_out_type = btc_script_classify(scriptPubkey, data_out);
+            if (tx_out_type != BTC_TX_SCRIPTHASH){
+                vector_free(data_out, true);
+                SET_ERR_MSG_AND_RET("redeem Script without script hash type");
+            }
+            if (!checkScriptPubkeyMatch(&redeemStr, vector_idx(data_out,0))){
+                vector_free(data_out, true);
+                SET_ERR_MSG_AND_RET("redeem script with different script hash.");
+            }
+            vector_free(data_out, true);
+
+            if( witness_utxo ){
+                if(!btc_script_is_witnessprogram(&redeemStr, &witness_version,witness_program, &program_len ))
+                    SET_ERR_MSG_AND_RET("wintess_utxo with non witness signature(p2sh wrapped)")
+            }
+        }
+        data_out = vector_new(2, free);
+        tx_out_type = btc_script_classify(&redeemStr, data_out);
+        if( tx_out_type == BTC_TX_WITNESS_V0_SCRIPTHASH){
+            if( witnessStr.len != 0){
+                uint256 hash;
+                sha256_Raw(witnessStr.str, witnessStr.len, hash);
+                if( memcmp(vector_idx(data_out,0), hash, 32) != 0){
+                    vector_free(data_out, true);
+                    SET_ERR_MSG_AND_RET("witness script not match hash in redeem script")
+                }
+            }
+            else
+            {
+                vector_free(data_out, true);
+                SET_ERR_MSG_AND_RET("witness script hash redeemp script need witness script");
+            }
+        }
+        vector_free(data_out, true);
+    }
+    else {
+        if( witness_utxo ){
+            if(!btc_script_is_witnessprogram(witness_utxo->script_pubkey, &witness_version, witness_program, &program_len))
+                SET_ERR_MSG_AND_RET("witness_utxo with non witness signature");
+        }
+    }
+
+    if( prev_tx_out ){
+        if(redeemStr.len != 0){
+            fromPubkey = &redeemStr;
+        }
+        else{
+            fromPubkey = prev_tx_out->script_pubkey;
+        }
+        return btc_tx_sighash(tx, fromPubkey, input_n, hash_type, prev_tx_out->value, SIGVERSION_BASE, hash);
+    }
+    else if(witness_utxo){
+        if(redeemStr.len != 0){
+            fromPubkey = &redeemStr;
+        }
+        else {
+            fromPubkey = witness_utxo->script_pubkey;
+        }
+        data_out = vector_new(2, free);
+        tx_out_type = btc_script_classify(fromPubkey, data_out);
+        int ret;
+        cstring * signPubkey = cstr_new_sz(0);
+        if( tx_out_type == BTC_TX_WITNESS_V0_PUBKEYHASH) {
+            ret = btc_script_build_p2pkh(signPubkey, vector_idx(data_out,0));
+            ret = btc_tx_sighash(tx, signPubkey, input_n, hash_type, witness_utxo->value, SIGVERSION_WITNESS_V0 ,hash);
+            cstr_free(signPubkey, true);
+        }
+        else if( tx_out_type == BTC_TX_WITNESS_V0_SCRIPTHASH ){
+            ret = btc_tx_sighash(tx, &witnessStr, input_n, hash_type, witness_utxo->value, SIGVERSION_WITNESS_V0 ,hash);
+        }
+        else {
+            vector_free(data_out, true);
+            SET_ERR_MSG_AND_RET("unknown witness script type.");
+        }
+        vector_free(data_out, true);
+        return ret;
+    }
+    else{
+        SET_ERR_MSG_AND_RET("neither non_witness_utxo nor witness_utxo is provided.");
+    }
+
+    return true;
+}

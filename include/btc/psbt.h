@@ -105,7 +105,7 @@ LIBBTC_API uint32_t psbt_get_input_count(const psbt * psbt);
 
 LIBBTC_API int psbt_check_for_sig(const psbt *psbt, uint32_t input_n, uint32_t * hashtype_out, char ** err_message);
 
-LIBBTC_API int psbt_get_sighash(const psbt *psbt, uint32_t input_n, uint160 hash);
+LIBBTC_API int psbt_get_sighash(const psbt *psbt, uint32_t input_n, uint32_t hashtype, uint256 hash, char ** err_message);
 
 LIBBTC_API int psbt_add_partial_sig(psbt *psbt, uint32_t input_n, struct const_buffer * pubkey, struct const_buffer * sig);
 
