@@ -101,6 +101,7 @@ void test_psbt()
         char * errmsg = NULL;
         size_t vin_len = psbt.input_data->len;
         uint32_t hashType;
+        uint256 hash;
         int rall = true;
         for( size_t j =0; j<vin_len; j++){
             result = psbt_check_for_sig(&psbt, j, &hashType, &errmsg);
@@ -108,6 +109,12 @@ void test_psbt()
             if( !rall ){
                 break;
             }
+            result = psbt_get_sighash(&psbt, j, hashType, hash, &errmsg);
+            /*
+            rall = rall & result;
+            if( !rall ){
+                break;
+            }*/
         }
         if( errmsg ){
             printf("%s\n", errmsg);

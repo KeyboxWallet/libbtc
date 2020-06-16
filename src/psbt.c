@@ -35,6 +35,11 @@ static void psbt_input_map_elem_free(void *e)
         else if( elem->type.input == PSBT_IN_WITNESS_UTXO){
             btc_tx_out_free(elem->parsed.elem);
         }
+        else if( elem->type.input == PSBT_IN_PARTIAL_SIG){
+            if(psbt_map_elem_get_flag_dirty(elem)){
+                btc_free(elem->parsed.elem);
+            }
+        }
     }
     btc_free(elem);
 }
@@ -390,7 +395,14 @@ int psbt_serialize( cstring * str, const psbt * psbt )
             elem = vector_idx(vec, j);
             if( psbt_map_elem_get_flag_dirty(elem)){
                 // todo: 
-                goto _reset_cstring;
+                if( elem->type.input == PSBT_IN_PARTIAL_SIG){
+                    ser_varlen(str, 33);
+                    ser_bytes(str, elem->parsed.elem, 33);
+                    ser_varlen(str, 65);
+                    ser_bytes(str, (uint8_t*)elem->parsed.elem+33, 65);
+                }
+                else 
+                    goto _reset_cstring;
             }
             else{
                 ser_psbt_map_elem(str, elem);
@@ -491,11 +503,11 @@ int psbt_check_for_sig(const psbt *psbt, uint32_t input_n, uint32_t * hashtype_o
             witness_utxo = elem->parsed.elem;
             break;
         case PSBT_IN_REDEEM_SCRIPT:
-            redeemStr.str = elem->value.p;
+            redeemStr.str = (char*)elem->value.p;
             redeemStr.len = elem->value.len;
             break;
         case PSBT_IN_WITNESS_SCRIPT:
-            witnessStr.str = elem->value.p;
+            witnessStr.str = (char*)elem->value.p;
             witnessStr.len = elem->value.len;
             break;
         case PSBT_IN_SIGHASH_TYPE:
@@ -537,7 +549,7 @@ int psbt_check_for_sig(const psbt *psbt, uint32_t input_n, uint32_t * hashtype_o
         if( tx_out_type == BTC_TX_WITNESS_V0_SCRIPTHASH){
             if( witnessStr.len != 0){
                 uint256 hash;
-                sha256_Raw(witnessStr.str, witnessStr.len, hash);
+                sha256_Raw((uint8_t*)witnessStr.str, witnessStr.len, hash);
                 if( memcmp(vector_idx(data_out,0), hash, 32) != 0){
                     vector_free(data_out, true);
                     SET_ERR_MSG_AND_RET("witness script not match hash in redeem script")
@@ -605,11 +617,11 @@ int psbt_get_sighash(const psbt *psbt, uint32_t input_n, uint32_t hash_type, uin
             witness_utxo = elem->parsed.elem;
             break;
         case PSBT_IN_REDEEM_SCRIPT:
-            redeemStr.str = elem->value.p;
+            redeemStr.str = (char*)elem->value.p;
             redeemStr.len = elem->value.len;
             break;
         case PSBT_IN_WITNESS_SCRIPT:
-            witnessStr.str = elem->value.p;
+            witnessStr.str = (char*)elem->value.p;
             witnessStr.len = elem->value.len;
             break;
         case PSBT_IN_SIGHASH_TYPE:
@@ -653,7 +665,7 @@ int psbt_get_sighash(const psbt *psbt, uint32_t input_n, uint32_t hash_type, uin
         if( tx_out_type == BTC_TX_WITNESS_V0_SCRIPTHASH){
             if( witnessStr.len != 0){
                 uint256 hash;
-                sha256_Raw(witnessStr.str, witnessStr.len, hash);
+                sha256_Raw((uint8_t*)witnessStr.str, witnessStr.len, hash);
                 if( memcmp(vector_idx(data_out,0), hash, 32) != 0){
                     vector_free(data_out, true);
                     SET_ERR_MSG_AND_RET("witness script not match hash in redeem script")
@@ -713,5 +725,20 @@ int psbt_get_sighash(const psbt *psbt, uint32_t input_n, uint32_t hash_type, uin
         SET_ERR_MSG_AND_RET("neither non_witness_utxo nor witness_utxo is provided.");
     }
 
+    return true;
+}
+
+int psbt_add_partial_sig(psbt *psbt, uint32_t input_n, uint8_t pubkey[33], uint8_t sig[65])
+{
+    if( !psbt || !psbt->global_data || !psbt->input_data ) return false;
+    if( psbt->input_data->len <= input_n ) return false;
+    if( !pubkey || !sig ) return false;
+    psbt_map_elem * elem = psbt_map_elem_new();
+    elem->type.input = PSBT_IN_PARTIAL_SIG;
+    psbt_map_elem_set_flag_dirty(elem, true);
+    elem->parsed.elem = btc_malloc(33+65);
+    memcpy(elem->parsed.elem, pubkey, 33);
+    memcpy((uint8_t*)elem->parsed.elem + 33, sig, 65);
+    vector_add(vector_idx(psbt->input_data, input_n), elem);
     return true;
 }
