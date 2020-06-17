@@ -144,6 +144,7 @@ void test_psbt()
             }
         }
         assert(rall == false);
+        psbt_reset(&psbt);
     }
 
 }

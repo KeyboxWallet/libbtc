@@ -705,8 +705,9 @@ int psbt_get_sighash(const psbt *psbt, uint32_t input_n, uint32_t hash_type, uin
         data_out = vector_new(2, free);
         tx_out_type = btc_script_classify(fromPubkey, data_out);
         int ret;
-        cstring * signPubkey = cstr_new_sz(0);
+        cstring * signPubkey = NULL;
         if( tx_out_type == BTC_TX_WITNESS_V0_PUBKEYHASH) {
+            signPubkey = cstr_new_sz(0);
             ret = btc_script_build_p2pkh(signPubkey, vector_idx(data_out,0));
             ret = btc_tx_sighash(tx, signPubkey, input_n, hash_type, witness_utxo->value, SIGVERSION_WITNESS_V0 ,hash);
             cstr_free(signPubkey, true);
