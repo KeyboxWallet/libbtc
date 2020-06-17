@@ -108,14 +108,12 @@ void btc_script_op_free(btc_script_op* script_op)
     }
     script_op->datalen = 0;
     script_op->op = OP_0;
+    btc_free(script_op);
 }
 
 void btc_script_op_free_cb(void* data)
 {
-    btc_script_op* script_op = data;
-    btc_script_op_free(script_op);
-
-    btc_free(script_op);
+    btc_script_op_free(data);
 }
 
 btc_bool btc_script_get_ops(const cstring* script_in, vector* ops_out)
@@ -170,8 +168,7 @@ btc_bool btc_script_get_ops(const cstring* script_in, vector* ops_out)
 
         vector_add(ops_out, op);
 
-        if (!deser_skip(&buf, data_len))
-            goto err_out;
+        deser_skip(&buf, data_len);
     }
 
     return true;

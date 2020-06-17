@@ -1353,6 +1353,7 @@ void test_tx_sign_p2pkh_i2(btc_tx *tx) {
 
     cstr_free(tx_ser, true);
     cstr_free(script, true);
+    cstr_free(script_wrong, true);
 }
 
 void test_tx_sign() {
@@ -1378,7 +1379,9 @@ void test_scripts() {
     vector* vec = vector_new(16, free);
     enum btc_tx_out_type type = btc_script_classify(script_data_p2pk, vec);
     u_assert_int_eq(type, BTC_TX_PUBKEY);
+    cstr_free(script_data_p2pk, true);
     type = btc_script_classify(script_data_p2pkh, vec);
+    cstr_free(script_data_p2pkh, true);
     u_assert_int_eq(type, BTC_TX_PUBKEYHASH);
     vector_free(vec, true);
 }
